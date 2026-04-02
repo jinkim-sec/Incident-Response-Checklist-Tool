@@ -1,7 +1,8 @@
 # ir_checklist.py
 # Incident Response Checklist Tool
-# Day 3: Added progress tracking functionality
+# Day 4: Added CSV report generation
 
+import csv
 from datetime import datetime
 from incidents import INCIDENTS
 
@@ -40,7 +41,6 @@ def generate_checklist(incident_type):
     step number to each action.
     Returns a list of checklist item dicts.
     """
-    # Validate incident type
     if incident_type not in INCIDENTS:
         print(f"\n[ERROR] Unknown incident type: '{incident_type}'")
         print(f"Available types: {list(INCIDENTS.keys())}")
@@ -52,7 +52,6 @@ def generate_checklist(incident_type):
     print(f"\n[✓] Generating checklist for: {incident['name']}")
     print(f"    Severity: {incident['severity']}")
 
-    # Assign step numbers and build checklist items
     for i, step in enumerate(incident["steps"], start=1):
         checklist.append({
             "step": i,
@@ -84,24 +83,19 @@ def print_checklist(checklist, incident_type):
     print(f"  {incident['name'].upper()} — RESPONSE CHECKLIST")
     print("="*60)
 
-    # Group steps by NIST phase for cleaner output
     current_phase = None
     for item in checklist:
-        # Print phase header when phase changes
         if item["phase"] != current_phase:
             current_phase = item["phase"]
             print(f"\n  📋 {current_phase}")
             print(f"  {'-'*40}")
 
-        # Show status indicator
         status_icon = "✅" if item["status"] == "Completed" else "⬜"
         print(f"  {status_icon} Step {item['step']:02d}: {item['action']}")
 
-        # Show completion timestamp if step is completed
         if item["completed_at"]:
             print(f"           Completed at: {item['completed_at']}")
 
-    # Calculate and display progress
     completed = len([i for i in checklist if i["status"] == "Completed"])
     total = len(checklist)
     percentage = (completed / total * 100) if total > 0 else 0
@@ -129,7 +123,6 @@ def mark_step_complete(checklist, step_number):
                 print(f"[WARNING] Step {step_number} is already completed.")
                 return False
 
-            # Mark as completed and record timestamp
             item["status"] = "Completed"
             item["completed_at"] = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
@@ -162,23 +155,75 @@ def run_interactive_session(checklist, incident_type):
         command = input("Enter command: ").strip().lower()
 
         if command == "done":
-            # Exit session and show final progress
             print("\n[*] Session ended.")
             print_checklist(checklist, incident_type)
             break
 
         elif command == "status":
-            # Show current progress without exiting
             print_checklist(checklist, incident_type)
 
         elif command.isdigit():
-            # Mark specified step as complete
             step_number = int(command)
             mark_step_complete(checklist, step_number)
 
         else:
             print("[ERROR] Invalid command. Enter a step number, "
                   "'status', or 'done'.")
+
+
+# ─────────────────────────────────────────
+# Report generation
+# ─────────────────────────────────────────
+
+def save_report(checklist, incident_type, filename=None):
+    """
+    Export the completed checklist to a timestamped CSV report.
+    Includes incident metadata, step details, completion status,
+    and a summary of overall progress.
+    If no filename is provided, one is auto-generated with
+    the current timestamp.
+    """
+    if not checklist:
+        print("[WARNING] No checklist data to save.")
+        return
+
+    incident = INCIDENTS[incident_type]
+
+    # Auto-generate filename if not provided
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"ir_report_{incident_type}_{timestamp}.csv"
+
+    # Calculate progress summary
+    completed = len([i for i in checklist if i["status"] == "Completed"])
+    total = len(checklist)
+    percentage = (completed / total * 100) if total > 0 else 0
+
+    fieldnames = [
+        "incident_type", "incident_name", "severity",
+        "step", "phase", "action",
+        "status", "completed_at"
+    ]
+
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for item in checklist:
+            writer.writerow({
+                "incident_type": incident_type,
+                "incident_name": incident["name"],
+                "severity": incident["severity"],
+                "step": item["step"],
+                "phase": item["phase"],
+                "action": item["action"],
+                "status": item["status"],
+                "completed_at": item["completed_at"] or "N/A"
+            })
+
+    print(f"\n[✓] Report saved: {filename}")
+    print(f"    Progress: {completed}/{total} steps completed "
+          f"({percentage:.0f}%)")
 
 
 # ─────────────────────────────────────────
@@ -202,4 +247,7 @@ if __name__ == "__main__":
 
         # Start interactive tracking session
         run_interactive_session(checklist, incident_type)
+
+        # Save report after session ends
+        save_report(checklist, incident_type)
 ```
