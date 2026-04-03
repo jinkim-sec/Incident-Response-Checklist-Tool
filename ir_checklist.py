@@ -1,6 +1,6 @@
 # ir_checklist.py
 # Incident Response Checklist Tool
-# Day 4: Added CSV report generation
+# Day 5: Finalized with input validation and error handling
 
 import csv
 from datetime import datetime
@@ -149,7 +149,7 @@ def run_interactive_session(checklist, incident_type):
     print("    Commands:")
     print("    - Enter step number to mark as complete")
     print("    - 'status' to view current progress")
-    print("    - 'done' to finish session\n")
+    print("    - 'done' to finish and save report\n")
 
     while True:
         command = input("Enter command: ").strip().lower()
@@ -189,12 +189,10 @@ def save_report(checklist, incident_type, filename=None):
 
     incident = INCIDENTS[incident_type]
 
-    # Auto-generate filename if not provided
     if not filename:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"ir_report_{incident_type}_{timestamp}.csv"
 
-    # Calculate progress summary
     completed = len([i for i in checklist if i["status"] == "Completed"])
     total = len(checklist)
     percentage = (completed / total * 100) if total > 0 else 0
@@ -227,6 +225,27 @@ def save_report(checklist, incident_type, filename=None):
 
 
 # ─────────────────────────────────────────
+# Select incident type with validation
+# ─────────────────────────────────────────
+
+def select_incident_type():
+    """
+    Prompt the user to select a valid incident type.
+    Keeps prompting until a valid type is entered.
+    Returns the validated incident type string.
+    """
+    while True:
+        print("Enter incident type: ", end="")
+        incident_type = input().strip().lower()
+
+        if incident_type in INCIDENTS:
+            return incident_type
+        else:
+            print(f"\n[ERROR] '{incident_type}' is not a valid incident type.")
+            print(f"Available types: {list(INCIDENTS.keys())}\n")
+
+
+# ─────────────────────────────────────────
 # Entry point
 # ─────────────────────────────────────────
 
@@ -234,9 +253,8 @@ if __name__ == "__main__":
     # Show available incident types
     show_incident_types()
 
-    # Prompt user to select an incident type
-    print("Enter incident type to generate checklist: ", end="")
-    incident_type = input().strip().lower()
+    # Select and validate incident type
+    incident_type = select_incident_type()
 
     # Generate checklist
     checklist = generate_checklist(incident_type)
@@ -250,4 +268,3 @@ if __name__ == "__main__":
 
         # Save report after session ends
         save_report(checklist, incident_type)
-```
